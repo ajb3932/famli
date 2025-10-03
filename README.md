@@ -6,7 +6,9 @@
 
 Famli is a modern, containerized Progressive Web Application designed for household-centric contact management. Unlike traditional contact systems that focus on individuals, Famli organizes contacts by household units, making it ideal for managing family addresses, Christmas card lists, and event invitations.
 
-💁 My first React app - feedback welcome!
+The premice of this app was because I have family all over the UK and it was a pain to remember their addresses, hence creating Famli.
+
+N.b: This was mostly vibe coded with Calude-Code but it has been checked by a human.
 
 ## ✨ Features
 
