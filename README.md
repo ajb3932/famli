@@ -1,274 +1,299 @@
-# Famli - Household Contact Management System
+<div align="center">
+<a href="https://github.com/ajb3932/famli"><img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-logo.png" title="Famli Logo" style="max-width:100%;" width="200" /></a>
+</div>
 
-A modern, containerized Progressive Web Application designed for household-centric contact management. Famli organizes contacts by household units, making it ideal for managing family addresses, Christmas card lists, and event invitations.
+# 🏠 Famli - Household Contact Management
 
-## Features
+Famli is a modern, containerized Progressive Web Application designed for household-centric contact management. Unlike traditional contact systems that focus on individuals, Famli organizes contacts by household units, making it ideal for managing family addresses, Christmas card lists, and event invitations.
 
-- **Household-Centric Organization**: Manage contacts by families and households rather than individuals
-- **Role-Based Access Control**: Admin, Editor, and Viewer roles with appropriate permissions
-- **Modern UI**: Responsive design with dark mode support
-- **Progressive Web App**: Install on mobile devices for app-like experience
-- **Secure Authentication**: JWT-based authentication with refresh tokens
-- **Color Themes**: Customizable color themes for each household
-- **Complete Member Management**: Track birthdays, emails, phones, and notes for household members
-- **Audit Logging**: Track all administrative actions for security
+💁 My first React app - feedback welcome!
 
-## Technology Stack
+## ✨ Features
 
-### Backend
-- Node.js with Express.js
-- SQLite3 database
-- JWT authentication
-- bcrypt password hashing
+- **🏡 Household-Centric Organization** - Manage contacts by families and households rather than individuals
+- **👥 People Directory** - View all contacts alphabetically, sorted by first or last name
+- **🎨 Color Themes** - Customizable color themes for each household
+- **🌍 Locale Support** - Country-specific address formats (US, UK, Canada, Australia)
+- **🔐 Role-Based Access Control** - Admin, Editor, and Viewer roles with appropriate permissions
+- **🌙 Dark Mode** - Beautiful responsive design with dark mode support
+- **📱 Progressive Web App** - Install on mobile devices for app-like experience
+- **🔒 Secure Authentication** - JWT-based authentication with refresh tokens
+- **📊 Complete Member Management** - Track birthdays, emails, phones, and notes for household members
+- **📝 Audit Logging** - Track all administrative actions for security
 
-### Frontend
-- React 19
-- Vite build tool
-- Tailwind CSS
-- Progressive Web App features
+## 📷 Screenshots
 
-### Deployment
-- Docker containerization
-- Multi-stage builds for optimization
-- Persistent SQLite database via volume mounting
+<div align="center">
 
-## Quick Start
+### First Run Setup
+<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-first_run.jpg" title="First Run Setup" style="max-width:100%;" width="800" />
 
-### Using Docker (Recommended)
+### Household List View
+<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-household_view.jpg" title="Household View" style="max-width:100%;" width="800" />
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd famli
+### Create/Edit Household
+<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-create_household.jpg" title="Create Household" style="max-width:100%;" width="800" />
+
+### People/Contacts View
+<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-contact_view.jpg" title="Contact View" style="max-width:100%;" width="800" />
+
+### User Management (Admin)
+<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-users_view.jpg" title="Users View" style="max-width:100%;" width="800" />
+
+</div>
+
+## 🐳 Docker
+
+**Docker Compose:**
+
+Copy and paste this text into your `docker-compose.yml` file, make your own edits, and run it with `docker compose up -d`
+
+```yaml
+services:
+  famli:
+    image: ajb3932/famli:latest
+    container_name: famli
+    user: "1000:1000"  # Set to your user ID (run: id -u)
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./famli-data:/app/data  # Bind mount for database
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/famli.db
+      - JWT_SECRET=change-this-secret-in-production
+      - JWT_REFRESH_SECRET=change-this-refresh-secret-in-production
+      - CORS_ORIGIN=*
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 ```
 
-2. Build and run with Docker Compose:
-```bash
-docker-compose up -d
-```
-
-3. Access the application at `http://localhost:3000`
-
-4. Complete the first-run setup to create your admin account
-
-### Using Docker CLI
+**Docker CLI:**
 
 ```bash
-# Build the image
-docker build -t famli .
-
-# Run the container
 docker run -d \
   -p 3000:3000 \
-  -v famli-data:/app/data \
+  -v ./famli-data:/app/data \
   -e JWT_SECRET=your-secret-key \
   -e JWT_REFRESH_SECRET=your-refresh-secret \
+  --user 1000:1000 \
   --name famli \
-  famli
+  ajb3932/famli:latest
 ```
 
-### Manual Installation
-
-#### Backend Setup
-
-1. Navigate to backend directory:
+**⚠️ Important:** Make sure the data directory has correct permissions:
 ```bash
+mkdir -p ./famli-data
+sudo chown -R $(id -u):$(id -g) ./famli-data
+```
+
+## 🌍 Environment Variables
+
+The following Environment Variables are available:
+
+| Variable Name          | Description                              | Default Value                          |
+|------------------------|------------------------------------------|----------------------------------------|
+| `PORT`                 | Port the application runs on             | `3000`                                 |
+| `NODE_ENV`             | Node environment                         | `production`                           |
+| `DB_PATH`              | Path to SQLite database file             | `/app/data/famli.db`                   |
+| `JWT_SECRET`           | Secret key for JWT tokens                | `change-this-secret-in-production`     |
+| `JWT_REFRESH_SECRET`   | Secret key for JWT refresh tokens        | `change-this-refresh-secret-in-production` |
+| `CORS_ORIGIN`          | CORS origin for API requests             | `*`                                    |
+
+**🔒 Security:** Always change the JWT secrets in production! Generate secure random strings:
+```bash
+# Generate a secure random string
+openssl rand -base64 32
+```
+
+## 🚀 First Run
+
+When the app first runs, it will automatically detect that no users exist and present you with a setup wizard at the root URL. You'll be asked to create an administrator account with:
+- Username
+- Email
+- Password (minimum 8 characters)
+
+Once setup is complete, you'll be automatically logged in and can start adding households!
+
+## 💻 Usage
+
+**`/` (Root)**
+- If no users exist: Shows the first-run setup wizard
+- If not logged in: Shows the login page
+- If logged in: Shows the main application dashboard
+
+**Main Application Features:**
+
+- **Households Tab** - View all households in a list format with member counts. Click any household to see full details and members.
+
+- **People Tab** - Browse all contacts alphabetically. Toggle sorting by first name or last name. Click any person to navigate to their household.
+
+- **Users Tab (Admin Only)** - Manage user accounts, assign roles, and view audit logs.
+
+**User Roles:**
+
+| Role     | Permissions                                                     |
+|----------|-----------------------------------------------------------------|
+| `Admin`  | Full access - manage users, households, members, and settings  |
+| `Editor` | Create, edit, and delete households and members                |
+| `Viewer` | Read-only access to household information                      |
+
+**Locale Settings:**
+
+Switch between country formats in the header dropdown:
+- 🇺🇸 **United States** - City, State, ZIP Code
+- 🇬🇧 **United Kingdom** - Town, County, Postcode
+- 🇨🇦 **Canada** - City, Province, Postal Code
+- 🇦🇺 **Australia** - City, State, Postcode
+
+## 🔧 Troubleshooting
+
+If you encounter database permission errors, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed solutions.
+
+**Quick Fix for Permission Issues:**
+```bash
+# Fix directory ownership
+sudo chown -R $(id -u):$(id -g) ./famli-data
+
+# Verify permissions
+ls -la ./famli-data
+```
+
+## 🙋 I want to run this myself
+
+🐳 **Docker**
+```bash
+git clone https://github.com/ajb3932/famli.git
+cd famli
+mkdir -p famli-data
+docker build -t my-famli .
+docker run -d -p 3000:3000 -v ./famli-data:/app/data --user $(id -u):$(id -g) my-famli
+```
+
+🐳 **Docker Compose**
+```bash
+git clone https://github.com/ajb3932/famli.git
+cd famli
+mkdir -p famli-data
+# Edit docker-compose.yml first if needed
+docker compose up -d --build
+```
+
+💾 **Node.js (Development)**
+```bash
+git clone https://github.com/ajb3932/famli.git
+cd famli
+
+# Backend
 cd backend
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Create `.env` file (copy from `.env.example`):
-```bash
 cp .env.example .env
-```
+# Edit .env with your settings
+npm run dev
 
-4. Edit `.env` and set your JWT secrets
-
-5. Start the backend server:
-```bash
-npm start
-```
-
-#### Frontend Setup
-
-1. Navigate to frontend directory:
-```bash
+# Frontend (in another terminal)
 cd frontend
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Start development server:
-```bash
 npm run dev
 ```
 
-4. For production, build the frontend:
+## 📦 Technology Stack
+
+**Backend:**
+- Node.js with Express.js
+- SQLite3 database
+- JWT authentication with bcrypt
+- Helmet, CORS, and rate limiting
+
+**Frontend:**
+- React 19 with Vite
+- Tailwind CSS
+- Progressive Web App features
+- Dark mode support
+
+**Deployment:**
+- Docker with multi-stage builds
+- Alpine Linux base image
+- Health checks and graceful shutdown
+
+## 🗄️ Database Backup
+
+The SQLite database is stored in `/app/data/famli.db` (Docker) or `backend/data/famli.db` (manual).
+
+**Backup:**
 ```bash
-npm run build
+# Docker
+docker cp famli:/app/data/famli.db ./backup-$(date +%Y%m%d).db
+
+# Manual
+cp backend/data/famli.db ./backup-$(date +%Y%m%d).db
 ```
 
-## Environment Variables
-
-Create a `.env` file in the backend directory with the following variables:
-
-```env
-# Server Configuration
-PORT=3000
-NODE_ENV=production
-
-# Database
-DB_PATH=./data/famli.db
-
-# JWT Secrets (CHANGE THESE IN PRODUCTION!)
-JWT_SECRET=your-secret-key-change-in-production
-JWT_REFRESH_SECRET=your-refresh-secret-key-change-in-production
-
-# CORS
-CORS_ORIGIN=*
-```
-
-## User Roles
-
-- **Admin**: Full access to all features including user management
-- **Editor**: Can create, edit, and delete households and members
-- **Viewer**: Read-only access to household information
-
-## First-Run Setup
-
-When you first access Famli, you'll be guided through a setup wizard to create the initial administrator account. This ensures secure access to your household management system.
-
-## Database Backup
-
-The SQLite database is stored in the `/app/data` directory (when using Docker) or `backend/data` directory (manual installation). To backup your data:
-
-### Docker
+**Restore:**
 ```bash
-docker cp famli:/app/data/famli.db ./backup-famli.db
+# Docker
+docker cp ./backup.db famli:/app/data/famli.db
+docker restart famli
+
+# Manual
+cp ./backup.db backend/data/famli.db
 ```
 
-### Manual
-```bash
-cp backend/data/famli.db ./backup-famli.db
-```
+## 🏗️ Deployment to Unraid
 
-## API Endpoints
-
-### Authentication
-- `GET /api/auth/first-run` - Check if first-run setup is needed
-- `POST /api/auth/setup` - Complete first-run setup
-- `POST /api/auth/login` - Login
-- `POST /api/auth/refresh` - Refresh access token
-- `POST /api/auth/logout` - Logout
-
-### Households
-- `GET /api/households` - List all households (with pagination and search)
-- `GET /api/households/:id` - Get household details with members
-- `POST /api/households` - Create household (Admin/Editor)
-- `PUT /api/households/:id` - Update household (Admin/Editor)
-- `DELETE /api/households/:id` - Delete household (Admin)
-
-### Household Members
-- `GET /api/households/:id/members` - List household members
-- `POST /api/households/:id/members` - Add member (Admin/Editor)
-- `PUT /api/households/:id/members/:memberId` - Update member (Admin/Editor)
-- `DELETE /api/households/:id/members/:memberId` - Delete member (Admin/Editor)
-
-### Users
-- `GET /api/users` - List all users (Admin)
-- `GET /api/users/me` - Get current user profile
-- `PUT /api/users/me/preferences` - Update user preferences
-- `POST /api/users` - Create user (Admin)
-- `PUT /api/users/:id` - Update user (Admin)
-- `DELETE /api/users/:id` - Delete user (Admin)
-- `GET /api/users/audit/log` - Get audit log (Admin)
-
-## Deployment to Unraid
-
-1. In Unraid, go to the Docker tab
-2. Click "Add Container"
+1. In Unraid, go to the **Docker** tab
+2. Click **"Add Container"**
 3. Configure:
-   - **Name**: Famli
-   - **Repository**: famli (or your image name)
-   - **Port**: 3000 → 3000
-   - **Volume**: `/mnt/user/appdata/famli` → `/app/data`
+   - **Name**: `Famli`
+   - **Repository**: `ajb3932/famli:latest`
+   - **Port**: `3000` → `3000` (or your preferred port)
+   - **Path**: `/mnt/user/appdata/famli` → `/app/data`
    - **Environment Variables**:
-     - JWT_SECRET: (generate a secure random string)
-     - JWT_REFRESH_SECRET: (generate a secure random string)
-4. Apply and start the container
+     - `JWT_SECRET`: Generate a secure random string (32+ characters)
+     - `JWT_REFRESH_SECRET`: Generate another secure random string
+     - `PORT`: `3000`
+4. Click **Apply** and start the container
 5. Access at `http://[unraid-ip]:3000`
 
-## Security Considerations
+## 🔒 Security Considerations
 
-- **Change default JWT secrets** in production
-- Use **HTTPS** in production environments
-- Regularly **backup your database**
-- Keep dependencies **up to date**
-- Use strong passwords for all user accounts
-- Consider placing behind a reverse proxy (nginx, Traefik, etc.)
+- ✅ Change default JWT secrets in production
+- ✅ Use HTTPS in production (reverse proxy recommended)
+- ✅ Regularly backup your database
+- ✅ Keep dependencies up to date
+- ✅ Use strong passwords (min 8 characters)
+- ✅ Consider rate limiting at reverse proxy level
+- ✅ Review audit logs for suspicious activity
 
-## Development
-
-### Project Structure
-```
-famli/
-├── backend/
-│   ├── src/
-│   │   ├── database/
-│   │   │   └── schema.js
-│   │   ├── middleware/
-│   │   │   └── auth.js
-│   │   ├── routes/
-│   │   │   ├── auth.js
-│   │   │   ├── households.js
-│   │   │   └── users.js
-│   │   └── server.js
-│   ├── package.json
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── context/
-│   │   ├── services/
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── public/
-│   ├── package.json
-│   └── vite.config.js
-├── Dockerfile
-├── docker-compose.yml
-└── README.md
-```
-
-### Running in Development Mode
-
-Backend:
-```bash
-cd backend
-npm run dev
-```
-
-Frontend:
-```bash
-cd frontend
-npm run dev
-```
-
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
 
-## License
+## 📄 License
 
 ISC
 
-## Support
+## ⭐ Star History
 
-For issues, questions, or feature requests, please open an issue on the GitHub repository.
+<div align="center">
+<a href="https://www.star-history.com/#ajb3932/famli&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ajb3932/famli&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ajb3932/famli&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ajb3932/famli&type=Date" />
+ </picture>
+</a>
+</div>
+
+## ☕ Support
+
+<div align="center">
+<a href='https://ko-fi.com/F1F11GNNZU' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi4.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' />
+</a>
+</div>
