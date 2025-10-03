@@ -1,0 +1,26 @@
+services:
+  famli:
+    build: .
+    container_name: famli
+    ports:
+      - "3000:3000"
+    volumes:
+      - famli-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/famli.db
+      - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-change-this-refresh-secret-in-production}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  famli-data:
+    driver: local
