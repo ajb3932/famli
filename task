@@ -1,5 +1,0 @@
-1) Add a locale setting environment valiable and use Language Code (ISO 639-1) standard. Curently only support english speaking countries US, UK, CAN & AUS. Change the address fields to be country specific e.g. Town instead of City and County instead of State for the UK and ZIP Code instead of Post code for the US.
-2) View the households as a list
-3) Create a new tab that acts like a classic contacts list and shows all people sorted in alpahbetical order with a button to change which order, first name or surname and when you click on the person it shows the household card.
-4) The household card shows how many members of the household there are.
-5) Update the app to use the logo and favicons in ./public/images

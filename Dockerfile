@@ -32,6 +32,9 @@ COPY backend/ ./
 # Copy built frontend from previous stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
+# Make entrypoint script executable
+RUN chmod +x docker-entrypoint.sh
+
 # Create data directory for SQLite database
 RUN mkdir -p /app/data && \
     chown -R node:node /app
@@ -50,6 +53,9 @@ ENV DB_PATH=/app/data/famli.db
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Use entrypoint script
+ENTRYPOINT ["./docker-entrypoint.sh"]
 
 # Start the server
 CMD ["node", "src/server.js"]

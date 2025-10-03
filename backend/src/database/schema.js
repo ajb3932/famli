@@ -4,13 +4,51 @@ const fs = require('fs');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/famli.db');
 
-// Ensure data directory exists
+// Ensure data directory exists with proper permissions
 const dataDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+try {
+  if (!fs.existsSync(dataDir)) {
+    console.log('Creating database directory:', dataDir);
+    fs.mkdirSync(dataDir, { recursive: true, mode: 0o755 });
+    console.log('✓ Database directory created');
+  }
+  // Ensure directory is writable
+  fs.accessSync(dataDir, fs.constants.W_OK);
+} catch (err) {
+  console.error('========================================');
+  console.error('✗ DATABASE DIRECTORY ERROR');
+  console.error('========================================');
+  console.error('Failed to create or access data directory:', err.message);
+  console.error('Directory path:', dataDir);
+  console.error('This should have been caught by ensure-data-dir.js');
+  console.error('========================================');
+  throw err;
 }
 
-const db = new sqlite3.Database(DB_PATH);
+console.log('Opening SQLite database:', DB_PATH);
+const db = new sqlite3.Database(DB_PATH, (err) => {
+  if (err) {
+    console.error('========================================');
+    console.error('✗ SQLITE DATABASE ERROR');
+    console.error('========================================');
+    console.error('Failed to open database:', err.message);
+    console.error('Database path:', DB_PATH);
+    console.error('Error code:', err.code);
+
+    if (err.code === 'SQLITE_CANTOPEN') {
+      console.error('');
+      console.error('This error usually means:');
+      console.error('  1. The directory does not exist');
+      console.error('  2. Insufficient permissions to write to the directory');
+      console.error('  3. The disk is full or read-only');
+      console.error('');
+      console.error('Check the logs above for detailed permission information.');
+    }
+    console.error('========================================');
+    throw err;
+  }
+  console.log('✓ Database connection established');
+});
 
 const initDatabase = () => {
   return new Promise((resolve, reject) => {
