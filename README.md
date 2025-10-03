@@ -55,14 +55,14 @@ services:
   famli:
     image: ajb3932/famli:latest
     container_name: famli
-    user: "1000:1000"  # Set to your user ID (run: id -u)
+    user: "1000:1000"
     ports:
       - "9992:9992"
     volumes:
-      - ./famli-data:/app/data  # Bind mount for database
+      - ./famli-data:/app/data
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=9992
       - DB_PATH=/app/data/famli.db
       - JWT_SECRET=change-this-secret-in-production
       - JWT_REFRESH_SECRET=change-this-refresh-secret-in-production
