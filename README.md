@@ -57,7 +57,7 @@ services:
     container_name: famli
     user: "1000:1000"  # Set to your user ID (run: id -u)
     ports:
-      - "3000:3000"
+      - "9992:9992"
     volumes:
       - ./famli-data:/app/data  # Bind mount for database
     environment:
@@ -69,7 +69,7 @@ services:
       - CORS_ORIGIN=*
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:9992/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 3s
       retries: 3
