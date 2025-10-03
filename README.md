@@ -247,22 +247,6 @@ docker restart famli
 cp ./backup.db backend/data/famli.db
 ```
 
-## 🏗️ Deployment to Unraid
-
-1. In Unraid, go to the **Docker** tab
-2. Click **"Add Container"**
-3. Configure:
-   - **Name**: `Famli`
-   - **Repository**: `ajb3932/famli:latest`
-   - **Port**: `3000` → `3000` (or your preferred port)
-   - **Path**: `/mnt/user/appdata/famli` → `/app/data`
-   - **Environment Variables**:
-     - `JWT_SECRET`: Generate a secure random string (32+ characters)
-     - `JWT_REFRESH_SECRET`: Generate another secure random string
-     - `PORT`: `3000`
-4. Click **Apply** and start the container
-5. Access at `http://[unraid-ip]:3000`
-
 ## 🔒 Security Considerations
 
 - ✅ Change default JWT secrets in production
