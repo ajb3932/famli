@@ -39,9 +39,6 @@ N.b: This was mostly vibe coded with Calude-Code but it has been checked by a hu
 ### People/Contacts View
 <img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-contact_view.jpg" title="Contact View" style="max-width:100%;" width="800" />
 
-### User Management (Admin)
-<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-users_view.jpg" title="Users View" style="max-width:100%;" width="800" />
-
 </div>
 
 ## 🐳 Docker
@@ -68,12 +65,6 @@ services:
       - JWT_REFRESH_SECRET=change-this-refresh-secret-in-production
       - CORS_ORIGIN=*
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:9992/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
 ```
 
 **Docker CLI:**
