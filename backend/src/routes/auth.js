@@ -56,7 +56,7 @@ router.post('/setup', async (req, res) => {
           });
 
           // Store session
-          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
           db.run(
             'INSERT INTO user_sessions (user_id, token, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
             [this.lastID, tokens.accessToken, tokens.refreshToken, expiresAt]
@@ -106,7 +106,7 @@ router.post('/login', async (req, res) => {
       });
 
       // Store session
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
       db.run(
         'INSERT INTO user_sessions (user_id, token, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
         [user.id, tokens.accessToken, tokens.refreshToken, expiresAt],

@@ -22,6 +22,9 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Install bash for better terminal experience
+RUN apk add --no-cache bash
+
 # Install production dependencies for backend
 COPY backend/package*.json ./
 RUN npm ci --only=production

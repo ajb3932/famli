@@ -85,6 +85,15 @@ async function request(endpoint, options = {}) {
       }
     }
 
+    // If forbidden (403) and not on auth endpoint, redirect to login
+    if (response.status === 403 && !endpoint.includes('/auth/')) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+      throw new ApiError('Invalid or expired token', 403, { error: 'Session expired' });
+    }
+
     return await handleResponse(response);
   } catch (error) {
     if (error instanceof ApiError) {
