@@ -52,7 +52,7 @@ export default function Households() {
       <SearchInput
         value={search}
         onChange={updateSearch}
-        placeholder="Search by name, town, postcode or member…"
+        placeholder="Search households, towns or people…"
         className="mb-8 max-w-xl"
       />
 

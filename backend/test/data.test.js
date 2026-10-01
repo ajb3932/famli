@@ -128,18 +128,26 @@ test('people list sorts and paginates; birthdays endpoint works', async () => {
   const soon = new Date(Date.UTC(1985, today.getMonth(), today.getDate() + 3));
 
   await admin.post(`/api/households/${h.id}/members`).send({ first_name: 'Zed', last_name: 'Adams' });
-  await admin.post(`/api/households/${h.id}/members`).send({ first_name: 'Amy', last_name: 'Young', birthday: iso(soon) });
+  await admin
+    .post(`/api/households/${h.id}/members`)
+    .send({ first_name: 'Amy', last_name: 'Young', nickname: 'Ames', role: 'ignored', birthday: iso(soon) });
 
   const byFirst = await admin.get('/api/people?sortBy=first_name').expect(200);
   assert.deepEqual(byFirst.body.people.map((p) => p.first_name), ['Amy', 'Zed']);
   const byLast = await admin.get('/api/people?sortBy=last_name').expect(200);
   assert.deepEqual(byLast.body.people.map((p) => p.first_name), ['Zed', 'Amy']);
+  const amy = byFirst.body.people[0];
+  assert.equal(amy.nickname, 'Ames');
+  assert.equal(amy.role, null, 'relationship is no longer accepted');
+  const byNickname = await admin.get('/api/people?search=ames').expect(200);
+  assert.deepEqual(byNickname.body.people.map((p) => p.first_name), ['Amy']);
   // Unknown sort keys fall back safely rather than reaching SQL.
   await admin.get('/api/people?sortBy=id;DROP TABLE users').expect(200);
 
   const birthdays = await admin.get('/api/people/birthdays?days=30').expect(200);
   assert.equal(birthdays.body.people.length, 1);
   assert.equal(birthdays.body.people[0].first_name, 'Amy');
+  assert.equal(birthdays.body.people[0].nickname, 'Ames');
 });
 
 test('daysUntilBirthday handles wrap-around', () => {

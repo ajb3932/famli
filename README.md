@@ -17,7 +17,7 @@ N.b: This was mostly vibe coded with Calude-Code but it has been checked by a hu
 - **🎂 Upcoming Birthdays** - See whose birthday is coming up in the next 30 days
 - **📋 Copy & Map Addresses** - Copy a ready-to-write address label or open it in maps
 - **🎨 Color Themes** - Pick a colour for each household
-- **🌍 Locale Support** - Country-specific address formats (US, UK, Canada, Australia), saved per account
+- **🌍 Regions** - Country-specific address labels and date formats (US, UK, Canada, Australia). Set a server-wide default with `DEFAULT_LOCALE`; each user can override it
 - **🔐 Role-Based Access Control** - Admin, Editor, and Viewer roles
 - **✨ Glass UI** - Frosted-glass design with smooth animations, light/dark/auto themes, and reduced-motion support
 - **📱 Progressive Web App** - Installable on phone and desktop, with automatic update prompts
@@ -63,6 +63,7 @@ services:
       - ./famli-data:/app/data
     environment:
       - PORT=9992
+      - DEFAULT_LOCALE=en-GB   # en-US, en-GB, en-CA or en-AU
       # - TRUST_PROXY=1   # uncomment when behind a reverse proxy
     read_only: true
     tmpfs:
@@ -100,6 +101,7 @@ No secrets to configure — sessions are random tokens stored (hashed) in the da
 |-----------------|---------------------------------------------------------------------------------------------------|----------------------|
 | `PORT`          | Port the application listens on                                                                   | `3000`               |
 | `DB_PATH`       | Path to the SQLite database file                                                                  | `/app/data/famli.db` |
+| `DEFAULT_LOCALE` | Default region for address labels and dates: `en-US`, `en-GB`, `en-CA`, `en-AU`. Users can change their own under the account menu | `en-US` |
 | `TRUST_PROXY`   | Set when behind a reverse proxy: `1` (one hop), `true`, or a list like `loopback,uniquelocal`     | _(off)_              |
 | `COOKIE_SECURE` | `auto` marks the session cookie Secure on HTTPS requests; `true` forces it; `false` disables it   | `auto`               |
 

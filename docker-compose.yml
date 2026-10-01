@@ -11,6 +11,8 @@ services:
       - ./famli-data:/app/data
     environment:
       - PORT=9992
+      # Address labels and date format: en-US, en-GB, en-CA or en-AU
+      - DEFAULT_LOCALE=en-GB
       # Behind a reverse proxy (nginx, Traefik, Caddy...)? Uncomment:
       # - TRUST_PROXY=1
     # Hardening: the app only ever writes to /app/data.

@@ -46,8 +46,13 @@ const LOCALE_CONFIG = {
   }
 };
 
-const DEFAULT_LOCALE = 'en-US';
 const SUPPORTED_LOCALES = Object.keys(LOCALE_CONFIG);
+
+// Server-wide default, e.g. DEFAULT_LOCALE=en-GB. Users can still pick their own.
+const DEFAULT_LOCALE = SUPPORTED_LOCALES.includes(process.env.DEFAULT_LOCALE) ? process.env.DEFAULT_LOCALE : 'en-US';
+if (process.env.DEFAULT_LOCALE && DEFAULT_LOCALE !== process.env.DEFAULT_LOCALE) {
+  console.warn(`Unsupported DEFAULT_LOCALE "${process.env.DEFAULT_LOCALE}", using en-US. Supported: ${SUPPORTED_LOCALES.join(', ')}`);
+}
 
 function getLocaleConfig(locale) {
   return LOCALE_CONFIG[locale] || LOCALE_CONFIG[DEFAULT_LOCALE];

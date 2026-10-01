@@ -35,7 +35,7 @@ module.exports = function peopleRoutes(db) {
     const other = sortBy === 'first_name' ? 'last_name' : 'first_name';
 
     const where = search
-      ? `WHERE m.first_name LIKE @q ESCAPE '\\' OR m.last_name LIKE @q ESCAPE '\\'
+      ? `WHERE m.first_name LIKE @q ESCAPE '\\' OR m.last_name LIKE @q ESCAPE '\\' OR m.nickname LIKE @q ESCAPE '\\'
            OR m.email LIKE @q ESCAPE '\\' OR h.name LIKE @q ESCAPE '\\'`
       : '';
     const from = 'FROM household_members m JOIN households h ON h.id = m.household_id';
@@ -61,7 +61,7 @@ module.exports = function peopleRoutes(db) {
 
     const people = db
       .prepare(
-        `SELECT m.id, m.first_name, m.last_name, m.birthday, m.household_id,
+        `SELECT m.id, m.first_name, m.last_name, m.nickname, m.birthday, m.household_id,
                 h.name AS household_name, h.color_theme
          FROM household_members m JOIN households h ON h.id = m.household_id
          WHERE m.birthday IS NOT NULL AND m.birthday != ''`

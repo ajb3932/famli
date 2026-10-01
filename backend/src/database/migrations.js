@@ -95,4 +95,13 @@ module.exports = [
       `);
     },
   },
+  {
+    version: 3,
+    name: 'member nicknames',
+    up(db) {
+      // "role" (relationship) is no longer shown or edited, but the column is
+      // kept so existing data isn't destroyed.
+      db.exec('ALTER TABLE household_members ADD COLUMN nickname TEXT;');
+    },
+  },
 ];

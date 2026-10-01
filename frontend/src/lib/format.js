@@ -30,6 +30,11 @@ export function fullName(person) {
   return [person.first_name, person.last_name].filter(Boolean).join(' ');
 }
 
+/** The name someone likes to be called: their nickname if they have one. */
+export function preferredName(person) {
+  return person.nickname?.trim() || person.first_name;
+}
+
 export function householdInitials(name = '') {
   const words = name
     .replace(/^the\s+/i, '')
