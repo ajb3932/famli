@@ -8,6 +8,8 @@ yarn-error.log*
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
 
 # Environment variables
 .env
@@ -34,5 +36,5 @@ Thumbs.db
 logs/
 *.log
 
-# Docker
-.dockerignore
+# Docker volume used by docker-compose.yml
+famli-data/

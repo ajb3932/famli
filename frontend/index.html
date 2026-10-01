@@ -2,15 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Famli – keep every household, address and birthday in one place." />
+    <meta name="theme-color" content="#f7f4ef" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Famli" />
+    <meta name="referrer" content="same-origin" />
     <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Famli - Contact Management System" />
-    <meta name="theme-color" content="#3b82f6" />
-    <link rel="manifest" href="/manifest.json" />
-    <title>Famli - Contact Management</title>
+    <!-- Applies the saved theme before first paint (external so the CSP can forbid inline scripts). -->
+    <script src="/theme-init.js"></script>
+    <title>Famli</title>
   </head>
   <body>
     <div id="root"></div>

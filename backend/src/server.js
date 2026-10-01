@@ -1,102 +1,49 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const path = require('path');
-const { initDatabase } = require('./database/schema');
+const config = require('./config');
+const { openDatabase } = require('./database');
+const { createApp } = require('./app');
+const { purgeExpiredSessions } = require('./lib/sessions');
 
-// Import routes
-const authRoutes = require('./routes/auth');
-const householdRoutes = require('./routes/households');
-const userRoutes = require('./routes/users');
-const configRoutes = require('./routes/config');
-const peopleRoutes = require('./routes/people');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: false // Allow serving frontend
-}));
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use('/api/', limiter);
-
-// CORS configuration
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
-}));
-
-// Body parsing middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
-
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/households', householdRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/config', configRoutes);
-app.use('/api/people', peopleRoutes);
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Serve frontend static files in production
-if (process.env.NODE_ENV === 'production') {
-  const frontendPath = path.join(__dirname, '../frontend/dist');
-  app.use(express.static(frontendPath));
-
-  // Catch-all route for SPA - must be last
-  // Express 5 requires explicit wildcard or regex
-  app.get(/^\/(?!api).*/, (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
-  });
+let db;
+try {
+  db = openDatabase(config.dbPath);
+} catch (err) {
+  console.error(`Failed to open database at ${config.dbPath}: ${err.message}`);
+  if (err.code === 'SQLITE_CANTOPEN' || err.code === 'EACCES') {
+    console.error(
+      `Check that the data directory exists and is writable by UID ${process.getuid?.()}.` +
+        ' For Docker: sudo chown -R 1000:1000 ./famli-data'
+    );
+  }
+  process.exit(1);
 }
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error'
+const app = createApp(db);
+
+const server = app.listen(config.port, () => {
+  console.log(`Famli listening on port ${config.port} (${config.env})`);
+});
+
+const purge = () => {
+  const removed = purgeExpiredSessions(db);
+  if (removed) console.log(`Purged ${removed} expired session(s)`);
+};
+purge();
+const purgeTimer = setInterval(purge, 60 * 60 * 1000);
+purgeTimer.unref();
+
+function shutdown(signal) {
+  console.log(`${signal} received, shutting down...`);
+  clearInterval(purgeTimer);
+  server.close(() => {
+    db.close();
+    process.exit(0);
   });
-});
+  // Don't hang forever on keep-alive connections.
+  setTimeout(() => {
+    db.close();
+    process.exit(0);
+  }, 5000).unref();
+}
 
-// Initialize database and start server
-initDatabase()
-  .then(() => {
-    console.log('Database initialized successfully');
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Famli server running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    });
-  })
-  .catch(err => {
-    console.error('Failed to initialize database:', err);
-    process.exit(1);
-  });
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully...');
-  process.exit(0);
-});
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

@@ -1,38 +1,57 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 const ThemeContext = createContext(null);
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider');
-  }
+  if (!context) throw new Error('useTheme must be used within ThemeProvider');
   return context;
 };
 
-export const ThemeProvider = ({ children }) => {
-  const [isDark, setIsDark] = useState(() => {
+const MODES = ['light', 'dark', 'system'];
+const THEME_COLORS = { light: '#f7f4ef', dark: '#121b26' };
+const media = window.matchMedia('(prefers-color-scheme: dark)');
+
+function readMode() {
+  try {
     const saved = localStorage.getItem('theme');
-    return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+    return MODES.includes(saved) ? saved : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+export function ThemeProvider({ children }) {
+  const [mode, setMode] = useState(readMode);
+  const [systemDark, setSystemDark] = useState(media.matches);
 
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+    const listener = (e) => setSystemDark(e.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, []);
+
+  const isDark = mode === 'dark' || (mode === 'system' && systemDark);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[isDark ? 'dark' : 'light']);
+    try {
+      localStorage.setItem('theme', mode);
+    } catch {
+      /* ignore */
     }
-  }, [isDark]);
+  }, [isDark, mode]);
 
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-  };
-
-  return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
+  const value = useMemo(
+    () => ({
+      mode,
+      isDark,
+      setMode,
+      cycleMode: () => setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length]),
+    }),
+    [mode, isDark]
   );
-};
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}

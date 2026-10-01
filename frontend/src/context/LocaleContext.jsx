@@ -1,86 +1,81 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { api } from '../lib/api';
+import { useAuth } from './AuthContext';
 
 const LocaleContext = createContext(null);
 
 export const useLocale = () => {
   const context = useContext(LocaleContext);
-  if (!context) {
-    throw new Error('useLocale must be used within LocaleProvider');
-  }
+  if (!context) throw new Error('useLocale must be used within LocaleProvider');
   return context;
 };
 
-export const LocaleProvider = ({ children }) => {
-  const [locale, setLocale] = useState(() => {
-    return localStorage.getItem('locale') || 'en-US';
-  });
-  const [localeConfig, setLocaleConfig] = useState(null);
-  const [availableLocales, setAvailableLocales] = useState([]);
-  const [loading, setLoading] = useState(true);
+const FALLBACK = {
+  code: 'en-US',
+  name: 'United States',
+  addressFields: {
+    line1: 'Address Line 1',
+    line2: 'Address Line 2',
+    city: 'City',
+    state: 'State',
+    postalCode: 'ZIP Code',
+    country: 'Country',
+  },
+};
+
+function initialLocale() {
+  try {
+    const saved = localStorage.getItem('locale');
+    if (saved) return saved;
+  } catch {
+    /* ignore */
+  }
+  return navigator.language || FALLBACK.code;
+}
+
+export function LocaleProvider({ children }) {
+  const { user, updatePreferences } = useAuth();
+  const [locale, setLocale] = useState(initialLocale);
+  const [available, setAvailable] = useState([FALLBACK]);
 
   useEffect(() => {
-    const fetchLocales = async () => {
-      try {
-        const data = await fetch('/api/config/locales').then(r => r.json());
-        setAvailableLocales(data.locales);
-
-        // Load current locale config
-        const currentConfig = data.locales.find(l => l.code === locale);
-        setLocaleConfig(currentConfig || data.locales.find(l => l.code === data.default));
-      } catch (err) {
-        console.error('Failed to load locale config:', err);
-        // Fallback config
-        setLocaleConfig({
-          code: 'en-US',
-          name: 'United States',
-          addressFields: {
-            line1: 'Address Line 1',
-            line2: 'Address Line 2',
-            city: 'City',
-            state: 'State',
-            postalCode: 'ZIP Code',
-            country: 'Country'
-          }
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchLocales();
+    api
+      .get('/config/locales')
+      .then((data) => setAvailable(data.locales))
+      .catch(() => {});
   }, []);
 
+  // A preference saved on the account wins, so it follows the user across devices.
+  const accountLocale = user?.preferences?.locale;
   useEffect(() => {
-    if (availableLocales.length > 0) {
-      const config = availableLocales.find(l => l.code === locale);
-      if (config) {
-        setLocaleConfig(config);
-        localStorage.setItem('locale', locale);
+    if (accountLocale) setLocale(accountLocale);
+  }, [accountLocale]);
+
+  const config = available.find((l) => l.code === locale) ?? available.find((l) => l.code === 'en-US') ?? FALLBACK;
+
+  const changeLocale = useCallback(
+    (code) => {
+      setLocale(code);
+      try {
+        localStorage.setItem('locale', code);
+      } catch {
+        /* ignore */
       }
-    }
-  }, [locale, availableLocales]);
-
-  const changeLocale = (newLocale) => {
-    if (availableLocales.find(l => l.code === newLocale)) {
-      setLocale(newLocale);
-    }
-  };
-
-  const value = {
-    locale,
-    localeConfig,
-    availableLocales,
-    changeLocale,
-    loading,
-    getAddressLabel: (field) => {
-      return localeConfig?.addressFields?.[field] || field;
-    }
-  };
-
-  return (
-    <LocaleContext.Provider value={value}>
-      {children}
-    </LocaleContext.Provider>
+      if (user) updatePreferences({ locale: code }).catch(() => {});
+    },
+    [user, updatePreferences]
   );
-};
+
+  const value = useMemo(
+    () => ({
+      locale: config.code,
+      localeConfig: config,
+      availableLocales: available,
+      changeLocale,
+      addressLabel: (field) => config.addressFields?.[field] ?? field,
+    }),
+    [config, available, changeLocale]
+  );
+
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
+}

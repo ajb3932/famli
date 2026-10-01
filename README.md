@@ -13,15 +13,16 @@ N.b: This was mostly vibe coded with Calude-Code but it has been checked by a hu
 ## ✨ Features
 
 - **🏡 Household-Centric Organization** - Manage contacts by families and households rather than individuals
-- **👥 People Directory** - View all contacts alphabetically, sorted by first or last name
-- **🎨 Color Themes** - Customizable color themes for each household
-- **🌍 Locale Support** - Country-specific address formats (US, UK, Canada, Australia)
-- **🔐 Role-Based Access Control** - Admin, Editor, and Viewer roles with appropriate permissions
-- **🌙 Dark Mode** - Beautiful responsive design with dark mode support
-- **📱 Progressive Web App** - Install on mobile devices for app-like experience
-- **🔒 Secure Authentication** - JWT-based authentication with refresh tokens
-- **📊 Complete Member Management** - Track birthdays, emails, phones, and notes for household members
-- **📝 Audit Logging** - Track all administrative actions for security
+- **👥 People Directory** - Everyone A–Z, sorted by first or last name, with one-tap email and call
+- **🎂 Upcoming Birthdays** - See whose birthday is coming up in the next 30 days
+- **📋 Copy & Map Addresses** - Copy a ready-to-write address label or open it in maps
+- **🎨 Color Themes** - Pick a colour for each household
+- **🌍 Locale Support** - Country-specific address formats (US, UK, Canada, Australia), saved per account
+- **🔐 Role-Based Access Control** - Admin, Editor, and Viewer roles
+- **✨ Glass UI** - Frosted-glass design with smooth animations, light/dark/auto themes, and reduced-motion support
+- **📱 Progressive Web App** - Installable on phone and desktop, with automatic update prompts
+- **🔒 Secure by Default** - HttpOnly session cookies, CSRF protection, strict CSP, rate-limited sign-in
+- **📝 Activity Log** - See every change and sign-in (including failed ones)
 
 ## 📷 Screenshots
 
@@ -30,14 +31,17 @@ N.b: This was mostly vibe coded with Calude-Code but it has been checked by a hu
 ### First Run Setup
 <img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-first_run.jpg" title="First Run Setup" style="max-width:100%;" width="800" />
 
-### Household List View
+### Households
 <img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-household_view.jpg" title="Household View" style="max-width:100%;" width="800" />
 
-### Create/Edit Household
-<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-create_household.jpg" title="Create Household" style="max-width:100%;" width="800" />
+### Edit Household
+<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-create_household.jpg" title="Edit Household" style="max-width:100%;" width="800" />
 
-### People/Contacts View
-<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-contact_view.jpg" title="Contact View" style="max-width:100%;" width="800" />
+### People
+<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-contact_view.jpg" title="People View" style="max-width:100%;" width="800" />
+
+### Users
+<img src="https://raw.githubusercontent.com/ajb3932/famli/main/frontend/public/images/famli-users_view.jpg" title="Users View" style="max-width:100%;" width="800" />
 
 </div>
 
@@ -45,7 +49,7 @@ N.b: This was mostly vibe coded with Calude-Code but it has been checked by a hu
 
 **Docker Compose:**
 
-Copy and paste this text into your `docker-compose.yml` file, make your own edits, and run it with `docker compose up -d`
+Copy and paste this into your `docker-compose.yml` file, make your own edits, and run it with `docker compose up -d`
 
 ```yaml
 services:
@@ -58,12 +62,15 @@ services:
     volumes:
       - ./famli-data:/app/data
     environment:
-      - NODE_ENV=production
       - PORT=9992
-      - DB_PATH=/app/data/famli.db
-      - JWT_SECRET=change-this-secret-in-production
-      - JWT_REFRESH_SECRET=change-this-refresh-secret-in-production
-      - CORS_ORIGIN=*
+      # - TRUST_PROXY=1   # uncomment when behind a reverse proxy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 ```
 
@@ -73,90 +80,78 @@ services:
 docker run -d \
   -p 3000:3000 \
   -v ./famli-data:/app/data \
-  -e JWT_SECRET=your-secret-key \
-  -e JWT_REFRESH_SECRET=your-refresh-secret \
   --user 1000:1000 \
+  --read-only --tmpfs /tmp --cap-drop ALL \
   --name famli \
   ajb3932/famli:latest
 ```
 
-**⚠️ Important:** Make sure the data directory has correct permissions:
+**⚠️ Important:** Make sure the data directory is writable by the container user:
 ```bash
 mkdir -p ./famli-data
-sudo chown -R $(id -u):$(id -g) ./famli-data
+sudo chown -R 1000:1000 ./famli-data
 ```
 
 ## 🌍 Environment Variables
 
-The following Environment Variables are available:
+No secrets to configure — sessions are random tokens stored (hashed) in the database.
 
-| Variable Name          | Description                              | Default Value                          |
-|------------------------|------------------------------------------|----------------------------------------|
-| `PORT`                 | Port the application runs on             | `3000`                                 |
-| `NODE_ENV`             | Node environment                         | `production`                           |
-| `DB_PATH`              | Path to SQLite database file             | `/app/data/famli.db`                   |
-| `JWT_SECRET`           | Secret key for JWT tokens                | `change-this-secret-in-production`     |
-| `JWT_REFRESH_SECRET`   | Secret key for JWT refresh tokens        | `change-this-refresh-secret-in-production` |
-| `CORS_ORIGIN`          | CORS origin for API requests             | `*`                                    |
+| Variable Name   | Description                                                                                       | Default              |
+|-----------------|---------------------------------------------------------------------------------------------------|----------------------|
+| `PORT`          | Port the application listens on                                                                   | `3000`               |
+| `DB_PATH`       | Path to the SQLite database file                                                                  | `/app/data/famli.db` |
+| `TRUST_PROXY`   | Set when behind a reverse proxy: `1` (one hop), `true`, or a list like `loopback,uniquelocal`     | _(off)_              |
+| `COOKIE_SECURE` | `auto` marks the session cookie Secure on HTTPS requests; `true` forces it; `false` disables it   | `auto`               |
 
-**🔒 Security:** Always change the JWT secrets in production! Generate secure random strings:
-```bash
-# Generate a secure random string
-openssl rand -base64 32
-```
+**Behind a reverse proxy with HTTPS** (nginx, Traefik, Caddy, Cloudflare Tunnel…) set `TRUST_PROXY=1` so rate limiting sees real client IPs and the session cookie is marked `Secure`.
+
+## ⬆️ Upgrading from 1.x
+
+1. **Back up your database first** (see below).
+2. Pull the new image and restart. The database is upgraded automatically on start-up — households, members, users and the activity log are kept.
+3. Everyone will need to **sign in again once** (the old token sessions are replaced).
+4. You can remove `JWT_SECRET`, `JWT_REFRESH_SECRET` and `CORS_ORIGIN` from your config — they're no longer used.
+
+Older 1.x versions didn't enforce SQLite foreign keys, so members left behind by deleted households are cleaned up during the upgrade.
 
 ## 🚀 First Run
 
-When the app first runs, it will automatically detect that no users exist and present you with a setup wizard at the root URL. You'll be asked to create an administrator account with:
+When the app first runs, it detects that no users exist and shows a setup wizard. Create an administrator account with:
 - Username
 - Email
 - Password (minimum 8 characters)
 
-Once setup is complete, you'll be automatically logged in and can start adding households!
+Once setup is complete you're signed in and can start adding households!
 
 ## 💻 Usage
 
-**`/` (Root)**
-- If no users exist: Shows the first-run setup wizard
-- If not logged in: Shows the login page
-- If logged in: Shows the main application dashboard
-
-**Main Application Features:**
-
-- **Households Tab** - View all households in a list format with member counts. Click any household to see full details and members.
-
-- **People Tab** - Browse all contacts alphabetically. Toggle sorting by first name or last name. Click any person to navigate to their household.
-
-- **Users Tab (Admin Only)** - Manage user accounts, assign roles, and view audit logs.
+- **Households** - All households as cards with member avatars and upcoming birthdays. Search by name, town, postcode, or member name.
+- **People** - Everyone A–Z. Toggle sorting by first or last name; tap a person to open their household.
+- **Users (Admin)** - Add family members as viewers, editors or admins.
+- **Activity (Admin)** - Who changed what, and when — plus sign-ins and failed sign-in attempts.
+- **Account menu** - Theme (light/dark/auto), address format, change password, sign out.
 
 **User Roles:**
 
-| Role     | Permissions                                                     |
-|----------|-----------------------------------------------------------------|
-| `Admin`  | Full access - manage users, households, members, and settings  |
-| `Editor` | Create, edit, and delete households and members                |
-| `Viewer` | Read-only access to household information                      |
+| Role     | Permissions                                                         |
+|----------|---------------------------------------------------------------------|
+| `Admin`  | Full access - manage users, households, members, and see activity  |
+| `Editor` | Create and edit households and members                             |
+| `Viewer` | Read-only access to household information                          |
 
-**Locale Settings:**
-
-Switch between country formats in the header dropdown:
-- 🇺🇸 **United States** - City, State, ZIP Code
-- 🇬🇧 **United Kingdom** - Town, County, Postcode
-- 🇨🇦 **Canada** - City, Province, Postal Code
-- 🇦🇺 **Australia** - City, State, Postcode
+**Install as an app:** open Famli in your browser and choose *Install* (desktop Chrome/Edge) or *Add to Home Screen* (iOS Safari / Android Chrome). Installing needs HTTPS (or `localhost`).
 
 ## 🔧 Troubleshooting
 
-If you encounter database permission errors, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed solutions.
-
-**Quick Fix for Permission Issues:**
+**Permission errors on start-up** - the container runs as UID 1000 and needs to write to `/app/data`:
 ```bash
-# Fix directory ownership
-sudo chown -R $(id -u):$(id -g) ./famli-data
-
-# Verify permissions
+sudo chown -R 1000:1000 ./famli-data
 ls -la ./famli-data
 ```
+
+**"Too many sign-in attempts"** - sign-in is limited to 10 failed attempts per 15 minutes per IP. Behind a reverse proxy, set `TRUST_PROXY=1` so each visitor is counted separately.
+
+**Changes won't save behind a reverse proxy ("Cross-site request blocked")** - make sure your proxy passes the original `Host` header (nginx: `proxy_set_header Host $host;`).
 
 ## 🙋 I want to run this myself
 
@@ -174,23 +169,23 @@ docker run -d -p 3000:3000 -v ./famli-data:/app/data --user $(id -u):$(id -g) my
 git clone https://github.com/ajb3932/famli.git
 cd famli
 mkdir -p famli-data
-# Edit docker-compose.yml first if needed
+# Edit docker-compose.yml first (e.g. switch "image:" to "build: .")
 docker compose up -d --build
 ```
 
-💾 **Node.js (Development)**
+💾 **Node.js 22+ (Development)**
 ```bash
 git clone https://github.com/ajb3932/famli.git
 cd famli
 
-# Backend
+# Backend (http://localhost:3000)
 cd backend
 npm install
 cp .env.example .env
-# Edit .env with your settings
 npm run dev
+npm test          # run the API test suite
 
-# Frontend (in another terminal)
+# Frontend (in another terminal, http://localhost:5173)
 cd frontend
 npm install
 npm run dev
@@ -199,54 +194,60 @@ npm run dev
 ## 📦 Technology Stack
 
 **Backend:**
-- Node.js with Express.js
-- SQLite3 database
-- JWT authentication with bcrypt
-- Helmet, CORS, and rate limiting
+- Node.js 24 + Express 5
+- SQLite via better-sqlite3 (WAL mode, versioned migrations)
+- Server-side sessions in HttpOnly cookies, bcrypt password hashing
+- Zod input validation, Helmet (CSP), rate limiting
+- Node's built-in test runner + Supertest
 
 **Frontend:**
-- React 19 with Vite
-- Tailwind CSS
-- Progressive Web App features
-- Dark mode support
+- React 19 + React Router, built with Vite
+- Tailwind CSS v4 (glass surfaces, custom animations)
+- Lucide icons, Inter variable font (self-hosted)
+- vite-plugin-pwa / Workbox service worker
 
 **Deployment:**
-- Docker with multi-stage builds
-- Alpine Linux base image
-- Health checks and graceful shutdown
+- Multi-stage Docker build on Alpine
+- Runs as non-root with a read-only filesystem
+- Health check and graceful shutdown
 
 ## 🗄️ Database Backup
 
-The SQLite database is stored in `/app/data/famli.db` (Docker) or `backend/data/famli.db` (manual).
+The SQLite database is stored in `/app/data/famli.db` (Docker) or `backend/data/famli.db` (manual). Famli uses SQLite's WAL mode, so use SQLite's backup command rather than copying the file while it's running:
 
 **Backup:**
 ```bash
-# Docker
-docker cp famli:/app/data/famli.db ./backup-$(date +%Y%m%d).db
+# Docker (uses the sqlite3 CLI on the host against the mounted volume)
+sqlite3 ./famli-data/famli.db ".backup './famli-backup-$(date +%Y%m%d).db'"
 
-# Manual
-cp backend/data/famli.db ./backup-$(date +%Y%m%d).db
+# Or stop the container first and copy the files
+docker stop famli && cp ./famli-data/famli.db* ./backups/ && docker start famli
 ```
 
 **Restore:**
 ```bash
-# Docker
-docker cp ./backup.db famli:/app/data/famli.db
-docker restart famli
-
-# Manual
-cp ./backup.db backend/data/famli.db
+docker stop famli
+cp ./famli-backup.db ./famli-data/famli.db
+rm -f ./famli-data/famli.db-wal ./famli-data/famli.db-shm
+docker start famli
 ```
 
-## 🔒 Security Considerations
+## 🔒 Security
 
-- ✅ Change default JWT secrets in production
-- ✅ Use HTTPS in production (reverse proxy recommended)
-- ✅ Regularly backup your database
-- ✅ Keep dependencies up to date
-- ✅ Use strong passwords (min 8 characters)
-- ✅ Consider rate limiting at reverse proxy level
-- ✅ Review audit logs for suspicious activity
+What Famli does for you:
+- 🍪 Sessions are random tokens in **HttpOnly, SameSite=Strict** cookies — nothing an injected script could steal. Only a SHA-256 hash is stored server-side.
+- 🚪 Signing out, deleting a user, changing a role or resetting a password takes effect **immediately** on every device.
+- 🛡️ **CSRF protection** (Fetch Metadata + Origin checks, JSON-only writes) and a **strict Content-Security-Policy**.
+- 🔑 bcrypt (cost 12) with transparent upgrade of older hashes; sign-in is rate limited and doesn't reveal which usernames exist.
+- ✅ Every input is validated and length-limited server-side; there's always at least one admin.
+- 📝 Changes, sign-ins and failed sign-ins are written to the activity log.
+- 🙈 API responses are never cached by the browser or service worker; the database file is created owner-only (`0600`).
+
+What you should do:
+- ✅ Use HTTPS in production (reverse proxy recommended) and set `TRUST_PROXY`
+- ✅ Regularly back up your database
+- ✅ Keep the image up to date
+- ✅ Review the Activity page now and then
 
 ## 🤝 Contributing
 

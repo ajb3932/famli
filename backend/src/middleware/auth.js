@@ -1,72 +1,34 @@
-const jwt = require('jsonwebtoken');
-const { db } = require('../database/schema');
+const config = require('../config');
+const { findSession } = require('../lib/sessions');
+const { HttpError } = require('../lib/http');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key-change-in-production';
-
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+// Attaches req.user / req.sessionId when a valid session cookie is present.
+// The user row is re-read on every request, so role changes, deletions and
+// logouts take effect immediately.
+const loadSession = (db) => (req, res, next) => {
+  const token = req.cookies?.[config.session.cookieName];
+  if (token) {
+    const found = findSession(db, token);
+    if (found) {
+      req.user = found.user;
+      req.sessionId = found.sessionId;
+      req.sessionToken = token;
     }
-    req.user = user;
-    next();
-  });
+  }
+  next();
 };
 
-const authorizeRole = (...roles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+const requireAuth = (req, res, next) => {
+  if (!req.user) return next(new HttpError(401, 'Authentication required'));
+  next();
+};
 
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
+const requireRole =
+  (...roles) =>
+  (req, res, next) => {
+    if (!req.user) return next(new HttpError(401, 'Authentication required'));
+    if (!roles.includes(req.user.role)) return next(new HttpError(403, 'Insufficient permissions'));
     next();
   };
-};
 
-const generateTokens = (user) => {
-  const accessToken = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '1h' }
-  );
-
-  const refreshToken = jwt.sign(
-    { id: user.id },
-    JWT_REFRESH_SECRET,
-    { expiresIn: '30d' }
-  );
-
-  return { accessToken, refreshToken };
-};
-
-const verifyRefreshToken = (token) => {
-  return new Promise((resolve, reject) => {
-    jwt.verify(token, JWT_REFRESH_SECRET, (err, decoded) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(decoded);
-      }
-    });
-  });
-};
-
-module.exports = {
-  authenticateToken,
-  authorizeRole,
-  generateTokens,
-  verifyRefreshToken,
-  JWT_SECRET
-};
+module.exports = { loadSession, requireAuth, requireRole };

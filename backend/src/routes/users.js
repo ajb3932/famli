@@ -1,243 +1,182 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { db } = require('../database/schema');
-const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const config = require('../config');
+const schemas = require('../lib/schemas');
+const { HttpError, parse, paginate } = require('../lib/http');
+const { audit } = require('../lib/audit');
+const { destroyUserSessions } = require('../lib/sessions');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const { publicUser } = require('./auth');
 
-const router = express.Router();
+const USER_COLUMNS = 'id, username, email, role, created_at, updated_at';
 
-// All routes require authentication
-router.use(authenticateToken);
+function rethrowUnique(err) {
+  if (err?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    throw new HttpError(409, 'That username or email is already in use');
+  }
+  throw err;
+}
 
-// Get all users (admin only)
-router.get('/', authorizeRole('admin'), (req, res) => {
-  db.all('SELECT id, username, email, role, created_at, updated_at FROM users ORDER BY username ASC', (err, users) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json(users);
+module.exports = function userRoutes(db) {
+  const router = express.Router();
+  router.use(requireAuth);
+
+  const adminOnly = requireRole('admin');
+  const adminCount = () => db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
+  const getUser = (id) => db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`).get(id);
+
+  // ---- Current user ----------------------------------------------------------
+
+  router.get('/me', (req, res) => {
+    res.json(publicUser(req.user));
   });
-});
 
-// Get current user profile
-router.get('/me', (req, res) => {
-  db.get('SELECT id, username, email, role, preferences, created_at FROM users WHERE id = ?', [req.user.id], (err, user) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.json({
-      ...user,
-      preferences: user.preferences ? JSON.parse(user.preferences) : {}
-    });
-  });
-});
-
-// Update current user preferences
-router.put('/me/preferences', (req, res) => {
-  const { preferences } = req.body;
-
-  db.run(
-    'UPDATE users SET preferences = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    [JSON.stringify(preferences), req.user.id],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to update preferences' });
-      }
-
-      res.json({ message: 'Preferences updated successfully', preferences });
-    }
-  );
-});
-
-// Create user (admin only)
-router.post('/', authorizeRole('admin'), async (req, res) => {
-  const { username, email, password, role } = req.body;
-
-  if (!username || !email || !password || !role) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
-
-  if (password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  }
-
-  if (!['admin', 'editor', 'viewer'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role' });
-  }
-
-  try {
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    db.run(
-      'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
-      [username, email, passwordHash, role],
-      function(err) {
-        if (err) {
-          if (err.message.includes('UNIQUE')) {
-            return res.status(400).json({ error: 'Username or email already exists' });
-          }
-          return res.status(500).json({ error: 'Failed to create user' });
-        }
-
-        // Log audit
-        db.run(
-          'INSERT INTO audit_log (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)',
-          [req.user.id, 'CREATE', 'user', this.lastID, JSON.stringify({ username, role })]
-        );
-
-        res.status(201).json({
-          id: this.lastID,
-          username,
-          email,
-          role,
-          message: 'User created successfully'
-        });
-      }
+  router.put('/me/preferences', (req, res) => {
+    const updates = parse(schemas.preferences, req.body);
+    const preferences = { ...req.user.preferences, ...updates };
+    db.prepare('UPDATE users SET preferences = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(
+      JSON.stringify(preferences),
+      req.user.id
     );
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+    res.json({ preferences });
+  });
 
-// Update user (admin only)
-router.put('/:id', authorizeRole('admin'), async (req, res) => {
-  const { id } = req.params;
-  const { username, email, role, password } = req.body;
+  // ---- Administration --------------------------------------------------------
 
-  // Build update query dynamically
-  const updates = [];
-  const params = [];
+  router.get('/', adminOnly, (req, res) => {
+    res.json(db.prepare(`SELECT ${USER_COLUMNS} FROM users ORDER BY username COLLATE NOCASE`).all());
+  });
 
-  if (username) {
-    updates.push('username = ?');
-    params.push(username);
-  }
-  if (email) {
-    updates.push('email = ?');
-    params.push(email);
-  }
-  if (role) {
-    if (!['admin', 'editor', 'viewer'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
+  router.post('/', adminOnly, async (req, res) => {
+    const data = parse(schemas.createUser, req.body);
+    const passwordHash = await bcrypt.hash(data.password, config.bcryptRounds);
+
+    let id;
+    try {
+      id = db.transaction(() => {
+        const { lastInsertRowid } = db
+          .prepare('INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)')
+          .run(data.username, data.email, passwordHash, data.role);
+        audit(db, {
+          userId: req.user.id,
+          action: 'CREATE',
+          entityType: 'user',
+          entityId: lastInsertRowid,
+          details: { username: data.username, role: data.role },
+        });
+        return lastInsertRowid;
+      })();
+    } catch (err) {
+      rethrowUnique(err);
     }
-    updates.push('role = ?');
-    params.push(role);
-  }
-  if (password) {
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
-    const passwordHash = await bcrypt.hash(password, 10);
-    updates.push('password_hash = ?');
-    params.push(passwordHash);
-  }
+    res.status(201).json(getUser(id));
+  });
 
-  if (updates.length === 0) {
-    return res.status(400).json({ error: 'No fields to update' });
-  }
+  router.put('/:id', adminOnly, async (req, res) => {
+    const id = parse(schemas.id, req.params.id);
+    const data = parse(schemas.updateUser, req.body);
+    const existing = getUser(id);
+    if (!existing) throw new HttpError(404, 'User not found');
 
-  updates.push('updated_at = CURRENT_TIMESTAMP');
-  params.push(id);
+    const passwordHash = data.password ? await bcrypt.hash(data.password, config.bcryptRounds) : undefined;
 
-  db.run(
-    `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-    params,
-    function(err) {
-      if (err) {
-        if (err.message.includes('UNIQUE')) {
-          return res.status(400).json({ error: 'Username or email already exists' });
+    try {
+      db.transaction(() => {
+        if (data.role && data.role !== 'admin' && existing.role === 'admin' && adminCount() <= 1) {
+          throw new HttpError(400, 'There must always be at least one admin');
         }
-        return res.status(500).json({ error: 'Failed to update user' });
+
+        const sets = [];
+        const params = {};
+        for (const field of ['username', 'email', 'role']) {
+          if (data[field] !== undefined) {
+            sets.push(`${field} = @${field}`);
+            params[field] = data[field];
+          }
+        }
+        if (passwordHash) {
+          sets.push('password_hash = @password_hash');
+          params.password_hash = passwordHash;
+        }
+        db.prepare(`UPDATE users SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = @id`).run({
+          ...params,
+          id,
+        });
+
+        // A password reset by an admin signs that user out everywhere.
+        if (passwordHash) {
+          destroyUserSessions(db, id, { exceptSessionId: id === req.user.id ? req.sessionId : undefined });
+        }
+
+        audit(db, {
+          userId: req.user.id,
+          action: 'UPDATE',
+          entityType: 'user',
+          entityId: id,
+          details: {
+            username: data.username ?? existing.username,
+            ...(data.role && data.role !== existing.role && { role: data.role }),
+            ...(passwordHash && { password_reset: true }),
+          },
+        });
+      })();
+    } catch (err) {
+      rethrowUnique(err);
+    }
+
+    res.json(getUser(id));
+  });
+
+  router.delete('/:id', adminOnly, (req, res) => {
+    const id = parse(schemas.id, req.params.id);
+    if (id === req.user.id) throw new HttpError(400, 'You cannot delete your own account');
+
+    const user = getUser(id);
+    if (!user) throw new HttpError(404, 'User not found');
+
+    db.transaction(() => {
+      if (user.role === 'admin' && adminCount() <= 1) {
+        throw new HttpError(400, 'There must always be at least one admin');
       }
-
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-
-      // Log audit
-      db.run(
-        'INSERT INTO audit_log (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)',
-        [req.user.id, 'UPDATE', 'user', id, JSON.stringify({ username, role })]
-      );
-
-      db.get('SELECT id, username, email, role FROM users WHERE id = ?', [id], (err, user) => {
-        res.json(user);
+      // Sessions are removed by ON DELETE CASCADE.
+      db.prepare('DELETE FROM users WHERE id = ?').run(id);
+      audit(db, {
+        userId: req.user.id,
+        action: 'DELETE',
+        entityType: 'user',
+        entityId: id,
+        details: { username: user.username },
       });
-    }
-  );
-});
-
-// Delete user (admin only)
-router.delete('/:id', authorizeRole('admin'), (req, res) => {
-  const { id } = req.params;
-
-  // Prevent deleting yourself
-  if (parseInt(id) === req.user.id) {
-    return res.status(400).json({ error: 'Cannot delete your own account' });
-  }
-
-  db.get('SELECT username FROM users WHERE id = ?', [id], (err, user) => {
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    db.run('DELETE FROM users WHERE id = ?', [id], function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to delete user' });
-      }
-
-      // Log audit
-      db.run(
-        'INSERT INTO audit_log (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)',
-        [req.user.id, 'DELETE', 'user', id, JSON.stringify({ username: user.username })]
-      );
-
-      res.json({ message: 'User deleted successfully' });
-    });
+    })();
+    res.status(204).end();
   });
-});
 
-// Get audit log (admin only)
-router.get('/audit/log', authorizeRole('admin'), (req, res) => {
-  const { page = 1, limit = 50 } = req.query;
-  const offset = (page - 1) * limit;
+  // ---- Audit log ---------------------------------------------------------------
 
-  db.get('SELECT COUNT(*) as total FROM audit_log', (err, countResult) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
-    }
+  const auditQuery = schemas.listQuery(50, 200);
 
-    db.all(
-      `SELECT a.*, u.username
-       FROM audit_log a
-       LEFT JOIN users u ON a.user_id = u.id
-       ORDER BY a.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [parseInt(limit), parseInt(offset)],
-      (err, logs) => {
-        if (err) {
-          return res.status(500).json({ error: 'Database error' });
+  router.get('/audit/log', adminOnly, (req, res) => {
+    const { page, limit } = parse(auditQuery, req.query);
+    const { total } = db.prepare('SELECT COUNT(*) AS total FROM audit_log').get();
+    const logs = db
+      .prepare(
+        `SELECT a.*, u.username FROM audit_log a
+         LEFT JOIN users u ON u.id = a.user_id
+         ORDER BY a.id DESC LIMIT ? OFFSET ?`
+      )
+      .all(limit, (page - 1) * limit)
+      .map((log) => {
+        let details = null;
+        try {
+          details = log.details ? JSON.parse(log.details) : null;
+        } catch {
+          details = { raw: log.details };
         }
+        return { ...log, details };
+      });
 
-        res.json({
-          logs: logs.map(log => ({
-            ...log,
-            details: log.details ? JSON.parse(log.details) : null
-          })),
-          pagination: {
-            page: parseInt(page),
-            limit: parseInt(limit),
-            total: countResult.total,
-            pages: Math.ceil(countResult.total / limit)
-          }
-        });
-      }
-    );
+    res.json({ logs, pagination: paginate(total, page, limit) });
   });
-});
 
-module.exports = router;
+  return router;
+};
