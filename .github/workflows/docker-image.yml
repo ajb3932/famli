@@ -7,23 +7,55 @@ name: Docker
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 env:
   # Docker Hub - leave REGISTRY as docker.io
   REGISTRY: docker.io
   # Docker Hub repo to push to (must match an existing repo under this
   # account, or one Docker Hub will create on first push)
-  IMAGE_NAME: ajb3932/mydevbox
+  IMAGE_NAME: ajb3932/famli
 
 
 jobs:
-  build:
+  # Tests, frontend build and dependency audit must pass before an image is built.
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
 
+      - name: Backend tests
+        working-directory: backend
+        run: |
+          npm ci
+          npm test
+
+      - name: Frontend build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Audit production dependencies
+        run: |
+          npm audit --omit=dev --audit-level=high --prefix backend
+          npm audit --omit=dev --audit-level=high --prefix frontend
+
+  build:
+    needs: test
     runs-on: ubuntu-latest
     environment: docker
     permissions:
