@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Cake, Mail, Phone } from 'lucide-react';
+import { Mail, Phone, Smile } from 'lucide-react';
 import { api } from '../../lib/api';
 import { fieldErrors } from '../../lib/forms';
 import { useToast } from '../../context/ToastContext';
+import { useLocale } from '../../context/LocaleContext';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { TextAreaField, TextField } from '../ui/Field';
+import { DateField } from '../ui/DateField';
 import { Avatar, ErrorNotice } from '../ui/misc';
 
-const FIELDS = ['first_name', 'last_name', 'role', 'birthday', 'email', 'phone', 'notes'];
-const ROLE_SUGGESTIONS = ['Parent', 'Partner', 'Child', 'Grandparent', 'Sibling', 'Aunt', 'Uncle', 'Cousin', 'Friend'];
+const FIELDS = ['first_name', 'last_name', 'nickname', 'birthday', 'email', 'phone', 'notes'];
 
 const toForm = (member) => Object.fromEntries(FIELDS.map((f) => [f, member?.[f] ?? '']));
 
 export function MemberFormModal({ open, onClose, household, member, onSaved }) {
   const toast = useToast();
+  const { locale } = useLocale();
   const [form, setForm] = useState(() => toForm(member));
   const [errors, setErrors] = useState({});
   const [error, setError] = useState(null);
@@ -96,27 +98,21 @@ export function MemberFormModal({ open, onClose, household, member, onSaved }) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
-            label="Relationship"
-            value={form.role}
-            onChange={set('role')}
-            error={errors.role}
-            list="member-role-suggestions"
-            placeholder="e.g. Parent, Child"
+            label="Nickname"
+            icon={Smile}
+            value={form.nickname}
+            onChange={set('nickname')}
+            error={errors.nickname}
+            hint="What they like to be called"
+            autoComplete="off"
             maxLength={50}
           />
-          <datalist id="member-role-suggestions">
-            {ROLE_SUGGESTIONS.map((r) => (
-              <option key={r} value={r} />
-            ))}
-          </datalist>
-          <TextField
+          <DateField
             label="Birthday"
-            type="date"
-            icon={Cake}
+            locale={locale}
             value={form.birthday}
-            onChange={set('birthday')}
+            onChange={(v) => set('birthday')({ target: { value: v } })}
             error={errors.birthday}
-            max={new Date().toISOString().slice(0, 10)}
           />
           <TextField
             label="Email"

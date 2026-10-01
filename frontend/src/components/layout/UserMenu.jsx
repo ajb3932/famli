@@ -76,7 +76,7 @@ export function UserMenu() {
             </div>
             <label className="block">
               <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                <Globe className="size-3.5" /> Address format
+                <Globe className="size-3.5" /> Region
               </span>
               <select
                 value={locale}
@@ -89,6 +89,7 @@ export function UserMenu() {
                   </option>
                 ))}
               </select>
+              <span className="mt-1.5 block text-xs text-slate-400">Sets address labels and date format</span>
             </label>
           </div>
 

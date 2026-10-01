@@ -58,7 +58,7 @@ export default function People() {
             setSearch(v);
             setParam({ q: v.trim() || undefined, page: undefined }, { replace: true });
           }}
-          placeholder="Search people, emails or households…"
+          placeholder="Search people or households…"
           className="flex-1 sm:max-w-xl"
         />
         <Segmented
@@ -116,7 +116,9 @@ export default function People() {
                         </p>
                         <p className="truncate text-sm text-slate-500 dark:text-slate-400">
                           {person.household_name}
-                          {person.role && <span className="text-slate-400 dark:text-slate-500"> · {person.role}</span>}
+                          {person.nickname && (
+                            <span className="text-slate-400 dark:text-slate-500"> · “{person.nickname}”</span>
+                          )}
                         </p>
                       </div>
                       <div className="flex items-center gap-1">

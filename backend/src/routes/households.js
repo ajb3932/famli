@@ -15,7 +15,7 @@ const HOUSEHOLD_FIELDS = [
   'notes',
   'color_theme',
 ];
-const MEMBER_FIELDS = ['first_name', 'last_name', 'role', 'birthday', 'email', 'phone', 'notes'];
+const MEMBER_FIELDS = ['first_name', 'last_name', 'nickname', 'birthday', 'email', 'phone', 'notes'];
 const PREVIEW_SIZE = 4;
 
 const listQuery = schemas.listQuery(24, 100);
@@ -47,7 +47,8 @@ module.exports = function householdRoutes(db) {
     const where = search
       ? `WHERE h.name LIKE @q ESCAPE '\\' OR h.city LIKE @q ESCAPE '\\' OR h.postal_code LIKE @q ESCAPE '\\'
            OR EXISTS (SELECT 1 FROM household_members m WHERE m.household_id = h.id
-                      AND (m.first_name LIKE @q ESCAPE '\\' OR m.last_name LIKE @q ESCAPE '\\'))`
+                      AND (m.first_name LIKE @q ESCAPE '\\' OR m.last_name LIKE @q ESCAPE '\\'
+                           OR m.nickname LIKE @q ESCAPE '\\'))`
       : '';
 
     const { total } = db.prepare(`SELECT COUNT(*) AS total FROM households h ${where}`).get({ q });

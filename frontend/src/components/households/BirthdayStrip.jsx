@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { Cake, PartyPopper } from 'lucide-react';
 import { useApi } from '../../lib/hooks';
-import { daysLabel, formatBirthday } from '../../lib/format';
+import { daysLabel, formatBirthday, preferredName } from '../../lib/format';
 import { useLocale } from '../../context/LocaleContext';
 import { Avatar, stagger } from '../ui/misc';
 
@@ -34,7 +34,7 @@ export function BirthdayStrip() {
               <Avatar first={p.first_name} last={p.last_name} color={p.color_theme} size="sm" />
               <div className="leading-tight">
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {p.first_name} {p.last_name}
+                  {preferredName(p)} {p.last_name}
                 </p>
                 <p
                   className={`flex items-center gap-1 text-xs ${today ? 'font-semibold text-coral-600 dark:text-coral-400' : 'text-slate-500 dark:text-slate-400'}`}

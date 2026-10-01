@@ -23,35 +23,44 @@ const FALLBACK = {
   },
 };
 
-function initialLocale() {
+function savedLocale() {
   try {
-    const saved = localStorage.getItem('locale');
-    if (saved) return saved;
+    return localStorage.getItem('locale');
   } catch {
-    /* ignore */
+    return null;
   }
-  return navigator.language || FALLBACK.code;
 }
 
 export function LocaleProvider({ children }) {
   const { user, updatePreferences } = useAuth();
-  const [locale, setLocale] = useState(initialLocale);
+  // Precedence: the account's saved choice, then this device's, then the
+  // server default (DEFAULT_LOCALE env var).
+  const [locale, setLocale] = useState(savedLocale);
   const [available, setAvailable] = useState([FALLBACK]);
+  const [serverDefault, setServerDefault] = useState(FALLBACK.code);
 
   useEffect(() => {
     api
       .get('/config/locales')
-      .then((data) => setAvailable(data.locales))
+      .then((data) => {
+        setAvailable(data.locales);
+        if (data.default) setServerDefault(data.default);
+      })
       .catch(() => {});
   }, []);
 
-  // A preference saved on the account wins, so it follows the user across devices.
   const accountLocale = user?.preferences?.locale;
   useEffect(() => {
     if (accountLocale) setLocale(accountLocale);
   }, [accountLocale]);
 
-  const config = available.find((l) => l.code === locale) ?? available.find((l) => l.code === 'en-US') ?? FALLBACK;
+  const active = locale ?? serverDefault;
+  const config =
+    available.find((l) => l.code === active) ?? available.find((l) => l.code === serverDefault) ?? FALLBACK;
+
+  useEffect(() => {
+    document.documentElement.lang = config.code;
+  }, [config.code]);
 
   const changeLocale = useCallback(
     (code) => {

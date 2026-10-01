@@ -66,7 +66,7 @@ const household = z.object({
 const member = z.object({
   first_name: requiredText(100, 'First name'),
   last_name: optionalText(100),
-  role: optionalText(50),
+  nickname: optionalText(50),
   birthday: isoDate,
   email: optionalEmail,
   phone: optionalText(40),

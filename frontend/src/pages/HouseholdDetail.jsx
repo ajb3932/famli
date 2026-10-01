@@ -22,6 +22,7 @@ import {
   ageOf,
   formatBirthday,
   fullName,
+  preferredName,
   householdInitials,
   mapsUrl,
   safeColor,
@@ -31,7 +32,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { useLocale } from '../context/LocaleContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
-import { Avatar, Badge, EmptyState, ErrorNotice, stagger } from '../components/ui/misc';
+import { Avatar, EmptyState, ErrorNotice, stagger } from '../components/ui/misc';
 import { HouseholdFormModal } from '../components/households/HouseholdFormModal';
 import { MemberFormModal } from '../components/households/MemberFormModal';
 
@@ -109,7 +110,7 @@ export default function HouseholdDetail() {
     if (!ok) return;
     try {
       await api.delete(`/households/${household.id}/members/${member.id}`);
-      toast.success(`${member.first_name} removed`);
+      toast.success(`${preferredName(member)} removed`);
       reload();
     } catch (err) {
       toast.error(err.message);
@@ -141,14 +142,15 @@ export default function HouseholdDetail() {
               <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
                 {household.name}
               </h1>
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 flex items-center gap-1.5 text-sm whitespace-nowrap text-slate-500 dark:text-slate-400">
                 <Users className="size-4" />
                 {members ? `${members.length} ${members.length === 1 ? 'member' : 'members'}` : '…'}
               </p>
             </div>
             {canEdit && (
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setEditing(true)} disabled={!data}>
+              // Full-width row under the name on phones so the name gets the space.
+              <div className="flex w-full gap-2 sm:w-auto">
+                <Button variant="secondary" onClick={() => setEditing(true)} disabled={!data} className="flex-1 sm:flex-none">
                   <Pencil /> Edit
                 </Button>
                 {isAdmin && (
@@ -288,10 +290,10 @@ function MemberCard({ member, color, index, canEdit, onEdit, onDelete }) {
           <h3 className="truncate text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
             {fullName(member)}
           </h3>
-          {member.role && (
-            <Badge tone="brand" className="mt-1">
-              {member.role}
-            </Badge>
+          {member.nickname && (
+            <p className="truncate text-sm text-slate-500 dark:text-slate-400">
+              Goes by <span className="font-medium text-slate-700 dark:text-slate-200">{member.nickname}</span>
+            </p>
           )}
         </div>
         {canEdit && (

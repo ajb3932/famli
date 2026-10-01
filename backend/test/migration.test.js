@@ -47,7 +47,7 @@ test('a Famli 1.x database is migrated in place and existing users can sign in',
   legacy.close();
 
   const db = openDatabase(file);
-  assert.equal(db.pragma('user_version', { simple: true }), 2);
+  assert.equal(db.pragma('user_version', { simple: true }), 3);
   assert.equal(db.pragma('foreign_keys', { simple: true }), 1);
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name = 'user_sessions'").get(), undefined);
   assert.deepEqual(
