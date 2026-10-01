@@ -1,98 +1,75 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { api, onUnauthorized } from '../lib/api';
 
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [isFirstRun, setIsFirstRun] = useState(false);
+export function AuthProvider({ children }) {
+  const [state, setState] = useState({ status: 'loading', user: null, setupRequired: false, error: null });
 
-  useEffect(() => {
-    // Check for stored tokens on mount
-    const accessToken = localStorage.getItem('accessToken');
-    const userData = localStorage.getItem('user');
-
-    if (accessToken && userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (err) {
-        console.error('Failed to parse user data:', err);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-      }
+  const refresh = useCallback(async () => {
+    setState((s) => ({ ...s, status: 'loading', error: null }));
+    try {
+      const data = await api.get('/auth/status');
+      setState({ status: 'ready', user: data.user, setupRequired: data.setupRequired, error: null });
+    } catch (error) {
+      setState((s) => ({ ...s, status: 'error', error }));
     }
-    setLoading(false);
   }, []);
 
-  const checkFirstRun = async () => {
+  useEffect(() => {
+    refresh();
+    onUnauthorized(() => setState((s) => ({ ...s, user: null })));
+    return () => onUnauthorized(null);
+  }, [refresh]);
+
+  const login = useCallback(async (username, password) => {
+    const { user } = await api.post('/auth/login', { username, password });
+    setState({ status: 'ready', user, setupRequired: false, error: null });
+  }, []);
+
+  const setup = useCallback(async (username, email, password) => {
+    const { user } = await api.post('/auth/setup', { username, email, password });
+    setState({ status: 'ready', user, setupRequired: false, error: null });
+  }, []);
+
+  const logout = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/first-run');
-      const data = await response.json();
-      setIsFirstRun(data.isFirstRun);
-    } catch (err) {
-      console.error('Failed to check first run:', err);
+      await api.post('/auth/logout');
+    } finally {
+      setState((s) => ({ ...s, user: null }));
     }
-  };
+  }, []);
 
-  const login = async (username, password) => {
-    const data = await api.post('/auth/login', { username, password });
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    setUser(data.user);
-    return data;
-  };
+  const changePassword = useCallback(
+    (currentPassword, newPassword) => api.post('/auth/password', { currentPassword, newPassword }),
+    []
+  );
 
-  const setup = async (username, email, password) => {
-    const data = await api.post('/auth/setup', { username, email, password });
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    setUser(data.user);
-    setIsFirstRun(false);
-    return data;
-  };
+  const updatePreferences = useCallback(async (updates) => {
+    const { preferences } = await api.put('/users/me/preferences', updates);
+    setState((s) => (s.user ? { ...s, user: { ...s.user, preferences } } : s));
+  }, []);
 
-  const logout = async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    try {
-      await api.post('/auth/logout', { refreshToken });
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    setUser(null);
-  };
-
-  const updatePreferences = async (preferences) => {
-    await api.put('/users/me/preferences', { preferences });
-    const updatedUser = { ...user, preferences };
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-  };
-
-  const value = {
-    user,
-    loading,
-    isFirstRun,
-    login,
-    logout,
-    setup,
-    checkFirstRun,
-    updatePreferences
-  };
+  const value = useMemo(() => {
+    const role = state.user?.role;
+    return {
+      ...state,
+      isAdmin: role === 'admin',
+      canEdit: role === 'admin' || role === 'editor',
+      refresh,
+      login,
+      setup,
+      logout,
+      changePassword,
+      updatePreferences,
+    };
+  }, [state, refresh, login, setup, logout, changePassword, updatePreferences]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+}

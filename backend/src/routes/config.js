@@ -1,30 +1,24 @@
 const express = require('express');
-const { SUPPORTED_LOCALES, getLocaleConfig, DEFAULT_LOCALE } = require('../config/locales');
+const { SUPPORTED_LOCALES, getLocaleConfig, isValidLocale, DEFAULT_LOCALE } = require('../config/locales');
+const { HttpError } = require('../lib/http');
 
-const router = express.Router();
+module.exports = function configRoutes() {
+  const router = express.Router();
 
-// Get supported locales
-router.get('/locales', (req, res) => {
-  res.json({
-    supported: SUPPORTED_LOCALES,
-    default: DEFAULT_LOCALE,
-    locales: SUPPORTED_LOCALES.map(code => ({
-      code,
-      ...getLocaleConfig(code)
-    }))
+  router.get('/locales', (req, res) => {
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json({
+      supported: SUPPORTED_LOCALES,
+      default: DEFAULT_LOCALE,
+      locales: SUPPORTED_LOCALES.map((code) => ({ code, ...getLocaleConfig(code) })),
+    });
   });
-});
 
-// Get specific locale configuration
-router.get('/locales/:code', (req, res) => {
-  const { code } = req.params;
-  const config = getLocaleConfig(code);
+  router.get('/locales/:code', (req, res) => {
+    const { code } = req.params;
+    if (!isValidLocale(code)) throw new HttpError(404, 'Locale not found');
+    res.json({ code, ...getLocaleConfig(code) });
+  });
 
-  if (!config) {
-    return res.status(404).json({ error: 'Locale not found' });
-  }
-
-  res.json({ code, ...config });
-});
-
-module.exports = router;
+  return router;
+};

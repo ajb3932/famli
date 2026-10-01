@@ -1,64 +1,43 @@
-# Multi-stage Dockerfile for Famli
+# syntax=docker/dockerfile:1
 
-# Stage 1: Build frontend
-FROM node:18-alpine AS frontend-builder
-
+# ---- Frontend build -----------------------------------------------------------
+FROM node:24-alpine AS frontend
 WORKDIR /app/frontend
-
-# Copy frontend package files
 COPY frontend/package*.json ./
-
-# Install dependencies
 RUN npm ci
-
-# Copy frontend source
 COPY frontend/ ./
-
-# Build frontend
 RUN npm run build
 
-# Stage 2: Setup backend and final image
-FROM node:18-alpine
+# ---- Backend production dependencies -------------------------------------------
+FROM node:24-alpine AS backend-deps
+WORKDIR /app
+# Only used if better-sqlite3 has no prebuilt binary for this platform/arch.
+RUN apk add --no-cache python3 make g++
+COPY backend/package*.json ./
+RUN npm ci --omit=dev
+
+# ---- Runtime -------------------------------------------------------------------
+FROM node:24-alpine
+
+ENV NODE_ENV=production \
+    PORT=3000 \
+    DB_PATH=/app/data/famli.db
 
 WORKDIR /app
 
-# Install bash for better terminal experience
-RUN apk add --no-cache bash
+# Application files stay owned by root (read-only to the app); only the data
+# directory is writable by the unprivileged "node" user (UID 1000).
+COPY --from=backend-deps /app/node_modules ./node_modules
+COPY backend/package.json ./
+COPY backend/src ./src
+COPY --from=frontend /app/frontend/dist ./frontend/dist
+RUN mkdir -p /app/data && chown node:node /app/data
 
-# Install production dependencies for backend
-COPY backend/package*.json ./
-RUN npm ci --only=production
-
-# Copy backend source
-COPY backend/ ./
-
-# Copy built frontend from previous stage
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-
-# Make entrypoint script executable
-RUN chmod +x docker-entrypoint.sh
-
-# Create data directory for SQLite database
-RUN mkdir -p /app/data && \
-    chown -R node:node /app
-
-# Switch to non-root user
 USER node
-
-# Expose port
 EXPOSE 3000
+VOLUME ["/app/data"]
 
-# Set production environment
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV DB_PATH=/app/data/famli.db
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-# Use entrypoint script
-ENTRYPOINT ["./docker-entrypoint.sh"]
-
-# Start the server
 CMD ["node", "src/server.js"]
